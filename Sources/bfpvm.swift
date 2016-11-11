@@ -3,7 +3,7 @@
 
 import Foundation
 
-struct Loop {
+public struct Loop {
     var start: Int = -1
     var  end : Int = -1
     init(_ start: Int, _ end: Int) {
@@ -12,8 +12,109 @@ struct Loop {
     }
 }
 
+public protocol InterpreterCommand {
+    var character: Character { get }
+    func functionToApply(state: BrainPlusVM) -> String?
+}
+
+public class IncreaseData: InterpreterCommand {
+    public var character = Character(">")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        state.dataPointer += 1
+        return nil
+    }
+}
+
+public class DecreaseData: InterpreterCommand {
+    public var character = Character("<")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        state.dataPointer -= 1
+        return nil
+    }
+}
+
+public class DecreasePointer: InterpreterCommand {
+    public var character = Character("-")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        state.decrememntPointer()
+        return nil
+    }
+}
+
+public class IncreasePointer: InterpreterCommand {
+    public var character = Character("+")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        state.incrememntPointer()
+        return nil
+    }
+}
+
+public class Output: InterpreterCommand {
+    public var character = Character(".")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        let c = state.getPointerCharacter()
+        return "\(c)"
+    }
+}
+
+public class Input: InterpreterCommand {
+    /// need to link here a pipe of some sort
+    public var pipe : Pipe?
+    init(pipe: Pipe) {
+        self.pipe = pipe
+    }
+    public var character = Character(",")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        if let outpipe = self.pipe {
+            let outdata = outpipe.fileHandleForReading.readData(ofLength: 1)
+            if let string = String(data: outdata, encoding: .ascii) {
+                if let c = string.characters.first {
+                    state.setPointerCharacter(character: c)
+                }
+            }
+        }
+        return nil
+    }
+}
+
+public class LoopStart: InterpreterCommand {
+    public var character = Character("[")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        let value = state.getPointerValue()
+        // current instruction state.instructionPointer
+        if value == 0 {
+            // jump to the end of the loop
+            for loop in state.loops {
+                if loop.start == state.instructionPointer {
+                    state.instructionPointer = loop.end
+                    return nil
+                }
+            }
+        }
+        return nil
+    }
+}
+
+public class LoopEnd: InterpreterCommand {
+    public var character = Character("]")
+    public func functionToApply(state: BrainPlusVM) -> String? {
+        let value = state.getPointerValue()
+        // current instruction state.instructionPointer
+        if value != 0 {
+            // jump to the start of the loop
+            for loop in state.loops {
+                if loop.end == state.instructionPointer {
+                    state.instructionPointer = loop.start
+                    return nil
+                }
+            }
+        }
+        return nil
+    }
+}
+
 //Future should be generic - class BrainPlusVM<Element: Integer>
-class BrainPlusVM {
+public class BrainPlusVM {
     public var dataSize: Int
     public var dataPointer: Int = 0 {
         didSet {
@@ -87,7 +188,7 @@ class BrainPlusVM {
 }
 
 
-class BrainPlusInterpreter {
+public class BrainPlusInterpreter {
     public  var maxCount: Int
     public  var maxResult: Int
     private var instructions: [InterpreterCommand]
@@ -165,105 +266,4 @@ class BrainPlusInterpreter {
     }
 }
 
-
-protocol InterpreterCommand {
-    var character: Character { get }
-    func functionToApply(state: BrainPlusVM) -> String?
-}
-
-class IncreaseData: InterpreterCommand {
-    var character = Character(">")
-    func functionToApply(state: BrainPlusVM) -> String? {
-        state.dataPointer += 1
-        return nil
-    }
-}
-
-class DecreaseData: InterpreterCommand {
-    var character = Character("<")
-     func functionToApply(state: BrainPlusVM) -> String? {
-        state.dataPointer -= 1
-        return nil
-    }
-}
-
-class DecreasePointer: InterpreterCommand {
-    var character = Character("-")
-     func functionToApply(state: BrainPlusVM) -> String? {
-         state.decrememntPointer()
-        return nil
-    }
-}
-
-class IncreasePointer: InterpreterCommand {
-    var character = Character("+")
-     func functionToApply(state: BrainPlusVM) -> String? {
-        state.incrememntPointer()
-        return nil
-    }
-}
-
-class Output: InterpreterCommand {
-    var character = Character(".")
-    func functionToApply(state: BrainPlusVM) -> String? {
-        let c = state.getPointerCharacter()
-        return "\(c)"
-    }
-}
-
-class Input: InterpreterCommand {
-    /// need to link here a pipe of some sort
-    var pipe : Pipe?
-    init(pipe: Pipe) {
-        self.pipe = pipe
-    }
-    var character = Character(",")
-    func functionToApply(state: BrainPlusVM) -> String? {
-        if let outpipe = self.pipe {
-            let outdata = outpipe.fileHandleForReading.readData(ofLength: 1)
-            if let string = String(data: outdata, encoding: .ascii) {
-                if let c = string.characters.first {
-                    state.setPointerCharacter(character: c)
-                }
-            }
-        }
-        return nil
-    }
-}
-
-class LoopStart: InterpreterCommand {
-    var character = Character("[")
-    func functionToApply(state: BrainPlusVM) -> String? {
-         let value = state.getPointerValue()
-        // current instruction state.instructionPointer
-        if value == 0 {
-            // jump to the end of the loop
-            for loop in state.loops {
-                if loop.start == state.instructionPointer {
-                    state.instructionPointer = loop.end
-                    return nil
-                }
-            }
-        }
-        return nil
-    }
-}
-
-class LoopEnd: InterpreterCommand {
-    var character = Character("]")
-    func functionToApply(state: BrainPlusVM) -> String? {
-        let value = state.getPointerValue()
-        // current instruction state.instructionPointer
-        if value != 0 {
-            // jump to the start of the loop
-            for loop in state.loops {
-                if loop.end == state.instructionPointer {
-                    state.instructionPointer = loop.start
-                    return nil
-                }
-            }
-        }
-        return nil
-    }
-}
 
